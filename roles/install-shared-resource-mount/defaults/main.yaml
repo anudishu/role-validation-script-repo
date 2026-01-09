@@ -1,0 +1,4 @@
+# Default variables for install-shared-resource-mount role
+shared_resources_mount: /opt/shared_resources
+shared_resources_fstype: ext4
+shared_resources_device: ""

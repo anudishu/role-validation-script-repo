@@ -1,0 +1,6 @@
+# Default variables for install-users-group role
+dataiku_user: dataiku
+dataiku_group: dataiku
+dss_user: dataiku_user
+group_users: dataiku_user_group
+group_users_gid: 1011

@@ -1,0 +1,27 @@
+# Tasks for install-packages-download role
+- name: Ensure package directories exist
+  file:
+    path: "{{ dest_dir }}/dataiku-pkgs"
+    state: directory
+    mode: "0755"
+- name: Download rpm-repo.tar from GCS bucket (requires gsutil auth)
+  command: "gsutil -m cp -r gs://{{ startup_bucket_name }}/{{ packages_prefix }}/rpm-repo.tar {{ dest_dir }}/"
+  args:
+    creates: "{{ dest_dir }}/rpm-repo.tar"
+  when: startup_bucket_name | default('') | length > 0
+- name: Download dataiku-pkgs from GCS bucket
+  command: "gsutil -m cp -r gs://{{ startup_bucket_name }}/{{ packages_prefix }}/dataiku-pkgs/* {{ dest_dir }}/dataiku-pkgs/"
+  when: startup_bucket_name | default('') | length > 0
+- name: Extract rpm repo tar
+  unarchive:
+    src: "{{ dest_dir }}/rpm-repo.tar"
+    dest: "{{ dest_dir }}"
+    remote_src: true
+  when: startup_bucket_name | default('') | length > 0
+- name: Extract dependencies.tar
+  unarchive:
+    src: "{{ dest_dir }}/dataiku-pkgs/dependencies.tar"
+    dest: "{{ dest_dir }}/dataiku-pkgs"
+    remote_src: true
+  when: startup_bucket_name | default('') | length > 0
+ 

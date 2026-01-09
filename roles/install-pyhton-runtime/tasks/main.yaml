@@ -1,0 +1,12 @@
+# Tasks for install-pyhton-runtime role
+- name: Verify python binaries exist (best-effort)
+  stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ python38_bin }}"
+    - "{{ python39_bin }}"
+  register: py_stats
+  failed_when: false
+- name: Placeholder - add python build steps from startup script as needed
+  debug:
+    msg: "Python build steps are environment-specific; keep parity with the bash script section."

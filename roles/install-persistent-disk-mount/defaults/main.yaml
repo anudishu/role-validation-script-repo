@@ -1,0 +1,3 @@
+# Default variables for install-persistent-disk-mount role
+ataiku_mountdir: /opt/dataiku
+dataiku_disk_partition: /dev/sdb1

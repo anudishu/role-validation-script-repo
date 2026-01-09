@@ -1,0 +1,3 @@
+# Default variables for install-pyhton-runtime role
+python38_bin: /usr/bin/python3.8
+python39_bin: /usr/bin/python3.9

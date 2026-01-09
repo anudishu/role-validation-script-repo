@@ -1,0 +1,12 @@
+# Tasks for install-nltk-data role
+- name: Ensure NLTK data directory exists
+  file:
+    path: "{{ nltk_data_dir }}"
+    state: directory
+    mode: "0755"
+  failed_when: false
+- name: Download common NLTK packages (best-effort)
+  command: >
+    python3 -c "import nltk; nltk.data.path.append('{{ nltk_data_dir }}'); nltk.download('punkt', download_dir='{{ nltk_data_dir }}'); nltk.download('stopwords', download_dir='{{ nltk_data_dir }}')"
+  failed_when: false
+ 

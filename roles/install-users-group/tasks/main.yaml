@@ -1,0 +1,39 @@
+# Tasks for install-users-group role
+- name: Ensure primary group exists
+  group:
+    name: "{{ dataiku_group }}"
+    state: present
+- name: Ensure dataiku user exists
+  user:
+    name: "{{ dataiku_user }}"
+    group: "{{ dataiku_group }}"
+    shell: /bin/bash
+    create_home: true
+    state: present
+- name: Ensure secondary group exists
+  group:
+    name: "{{ group_users }}"
+    gid: "{{ group_users_gid }}"
+    state: present
+- name: Ensure DSS user exists and is in secondary group
+  user:
+    name: "{{ dss_user }}"
+    shell: /bin/bash
+    groups: "{{ group_users }}"
+    append: true
+    state: present
+- name: Sudoers drop-in for dataiku (NOPASSWD)
+  copy:
+    dest: /etc/sudoers.d/dataiku-dss-uf-wrapper
+    content: "dataiku ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+- name: Set nofile limit
+  copy:
+    dest: /etc/security/limits.d/90-custom.conf
+    content: "dataiku soft nofile 4096\n"
+    owner: root
+    group: root
+    mode: "0644"
+ 

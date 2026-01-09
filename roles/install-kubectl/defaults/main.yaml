@@ -1,0 +1,2 @@
+# Default variables for install-kubectl role
+kubectl_path: /usr/bin/kubectl

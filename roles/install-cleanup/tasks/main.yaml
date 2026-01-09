@@ -1,0 +1,10 @@
+# Tasks for install-cleanup role
+# Default variables for install-cleanup role
+- name: Cleanup old kernels (best-effort)
+  command: "package-cleanup --oldkernels --count=1 -y"
+  failed_when: false
+  changed_when: false
+- name: Yum clean all
+  command: yum clean all
+  failed_when: false
+  changed_when: false

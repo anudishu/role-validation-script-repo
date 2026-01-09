@@ -1,0 +1,214 @@
+- name: Ensure NLTK data directory exists
+  file:
+    path: "{{ nltk_data_dir }}"
+    state: directory
+    mode: "0755"
+  failed_when: false
+- name: Download common NLTK packages (best-effort)
+  command: >
+    python3 -c "import nltk; nltk.data.path.append('{{ nltk_data_dir }}'); nltk.download('punkt', download_dir='{{ nltk_data_dir }}'); nltk.download('stopwords', download_dir='{{ nltk_data_dir }}')"
+  failed_when: false
+ 
+#!/usr/bin/env bash
+set -euo pipefail
+ROLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "${ROLE_DIR}/../.." && pwd)"
+export ROLE_DIR
+echo "Role directory: ${ROLE_DIR}"
+echo "Repo root:      ${ROOT_DIR}"
+fail=0
+echo "==> YAML sanity check (python + pyyaml required)"
+python - <<'PY' || fail=1
+import os, sys
+try:
+    import yaml
+except Exception as e:
+    print("PyYAML not installed (pip install pyyaml).")
+    sys.exit(1)
+ 
+role_dir = os.environ["ROLE_DIR"]
+for base, _, files in os.walk(role_dir):
+    for f in files:
+        if f.endswith((".yml", ".yaml")):
+            p = os.path.join(base, f)
+            try:
+                with open(p, "r", encoding="utf-8") as fh:
+                    yaml.safe_load(fh)
+            except Exception as e:
+                print(f"YAML ERROR: {p}: {e}")
+                sys.exit(1)
+print("YAML OK")
+PY
+echo "==> ansible-playbook syntax-check (if installed)"
+if command -v ansible-playbook >/dev/null 2>&1; then
+  ansible-playbook -i "${ROOT_DIR}/inventories/prod/hosts.ini"     "${ROOT_DIR}/playbooks/site.yml" --syntax-check || fail=1
+else
+  echo "WARN: ansible-playbook not found; skipping"
+fi
+if [[ "${fail}" -ne 0 ]]; then
+  echo "VALIDATION FAILED"
+  exit 1
+fi
+echo "VALIDATION PASSED"
+ 
+
+2
+ops_agent_config_path: /etc/google-cloud-ops-agent/config.yaml
+timezone: America/New_York
+Develop your code on the Google Cloud Platform.
+ 
+- name: restart ops agent
+  systemd:
+    name: google-cloud-ops-agent
+    state: restarted
+  failed_when: false
+- name: restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+  failed_when: false
+ 
+- name: Write Ops Agent config
+  template:
+    src: ops-agent-config.yaml.j2
+    dest: "{{ ops_agent_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart ops agent
+- name: Set timezone
+  file:
+    src: "/usr/share/zoneinfo/{{ timezone }}"
+    dest: /etc/localtime
+    state: link
+    force: true
+  failed_when: false
+- name: Set sshd ClientAliveInterval
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveInterval'
+    line: 'ClientAliveInterval 86400'
+  notify: restart sshd
+  failed_when: false
+- name: Set sshd ClientAliveCountMax
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveCountMax'
+    line: 'ClientAliveCountMax 0'
+  notify: restart sshd
+  failed_when: false
+ 
+ops-agent-config.yaml.j2
+
+
+ 
+global:
+  default_self_log_file_collection: false
+logging:
+  receivers:
+    dataiku-audit:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/audit/audit.log
+    dataiku-backend:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/backend.log
+        - /opt/dataiku/**/run/governserver.log
+    dataiku-unified-monitoring:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/unified-monitoring/unified-monitoring.log
+    dataiku-frontend:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/frontend.log.0
+    dataiku-ipython:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/ipython.log
+    dataiku-nginx:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/nginx.log
+    dataiku-nginx-access:
+      type: files
+      include_paths:
+        - /opt/dataiku/**/run/nginx/access.log
+  processors:
+    dataiku-parse-audit:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%L%z"
+      field: message
+    move-severity:
+      type: modify_fields
+      fields:
+        severity:
+          move_from: jsonPayload.severity
+    parse-java-multiline:
+      type: parse_multiline
+      match_any:
+        - type: language_exceptions
+          language: java
+    extract-dataiku-java-log-format:
+      type: parse_regex
+      field: message
+      regex: '^\[(?<timestamp>.*?)\]\s\[(?<thread>.*?)\]\s\[(?<severity>.*?)\]\s\[(?<logger>.*?)\]\s-\s(?<message>.*)'
+    extract-dataiku-python-log-format:
+      type: parse_regex
+      field: message
+      regex: '^\[(?<timestamp>[^\]]+)\]\s\[(?<pid>\d+)\]\s\[(?<thread>[^\]]+)\]\s\[(?<severity>[^\]]+)\]\s\[(?<logger>[^\]]+)\]\s(?<message>.*)$'
+    extract-nginx-access-log-format:
+      type: parse_regex
+      field: message
+      regex: '^(?<remote_user>\S+)\s\[(?<time_local>.*?)\]\s"(?<request>.*?)"\s(?<status>\d+)\s(?<body_bytes_sent>\d+)\s"(?<http_referer>.*?)"\s"(?<http_user_agent>.*?)"\s"(?<request_id>.*?)"\s"(?<host>.*?)"$'
+    drop-google-user-agent:
+      type: exclude_logs
+      match_any:
+        - field: message
+          value: 'GoogleHC/.*'
+    dataiku-parse-timestamp:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%L%z"
+      field: message
+    dataiku-python-parse-timestamp:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%L%z"
+      field: message
+    dataiku-nginx-parse-timestamp:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%L%z"
+      field: message
+    dataiku-nginx-access-parse-timestamp:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%L%z"
+      field: message
+service:
+  pipelines:
+    dataiku-audit:
+      receivers: [dataiku-audit]
+      processors: [dataiku-parse-audit, move-severity]
+    dataiku-backend:
+      receivers: [dataiku-backend]
+      processors: [parse-java-multiline, extract-dataiku-java-log-format, move-severity]
+    dataiku-unified-monitoring:
+      receivers: [dataiku-unified-monitoring]
+      processors: [parse-java-multiline, extract-dataiku-java-log-format, move-severity]
+    dataiku-frontend:
+      receivers: [dataiku-frontend]
+      processors: [parse-java-multiline, extract-dataiku-java-log-format, dataiku-frontend-parse-timestamp, move-severity]
+    dataiku-ipython:
+      receivers: [dataiku-ipython]
+      processors: [parse-java-multiline, extract-dataiku-python-log-format, dataiku-python-parse-timestamp, move-severity]
+    dataiku-nginx:
+      receivers: [dataiku-nginx]
+      processors: [extract-nginx-log-format, dataiku-nginx-parse-timestamp, move-severity]
+    dataiku-nginx-access:
+      receivers: [dataiku-nginx-access]
+      processors: [extract-nginx-access-log-format, drop-google-user-agent, dataiku-nginx-access-parse-timestamp, move-severity]
+ 

@@ -1,0 +1,31 @@
+# Tasks for install-ops-agent-logging role
+- name: Write Ops Agent config
+  template:
+    src: ops-agent-config.yaml.j2
+    dest: "{{ ops_agent_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart ops agent
+- name: Set timezone
+  file:
+    src: "/usr/share/zoneinfo/{{ timezone }}"
+    dest: /etc/localtime
+    state: link
+    force: true
+  failed_when: false
+- name: Set sshd ClientAliveInterval
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveInterval'
+    line: 'ClientAliveInterval 86400'
+  notify: restart sshd
+  failed_when: false
+- name: Set sshd ClientAliveCountMax
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveCountMax'
+    line: 'ClientAliveCountMax 0'
+  notify: restart sshd
+  failed_when: false
+ 

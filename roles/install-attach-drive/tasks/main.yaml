@@ -1,0 +1,7 @@
+# Tasks for install-attach-drive role
+- name: Wait for data disk device to exist (best-effort)
+  wait_for:
+    path: "{{ dataiku_disk_device }}"
+    state: present
+    timeout: 60
+  failed_when: false

@@ -1,0 +1,3 @@
+# Default variables for install-packages-download role
+dest_dir: /tmp/install-packages
+packages_prefix: compute-startup-scripts/packages

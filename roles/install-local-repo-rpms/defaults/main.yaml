@@ -1,0 +1,2 @@
+# Default variables for install-local-repo-rpms role
+dest_dir: /tmp/install-packages

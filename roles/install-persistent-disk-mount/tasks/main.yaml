@@ -1,0 +1,34 @@
+# Tasks for install-persistent-disk-mount role
+- name: Ensure mount directory exists
+  file:
+    path: "{{ dataiku_mountdir }}"
+    state: directory
+    mode: "0755"
+- name: Get UUID of disk partition (if present)
+  command: "blkid {{ dataiku_disk_partition }} -o value -s UUID"
+  register: disk_uuid
+  changed_when: false
+  failed_when: false
+- name: Ensure fstab entry exists (if UUID found)
+  lineinfile:
+    path: /etc/fstab
+    line: "UUID={{ disk_uuid.stdout }} {{ dataiku_mountdir }} ext4 discard,defaults,nofail 0 2"
+    state: present
+  when: disk_uuid.stdout is defined and disk_uuid.stdout | length > 0
+- name: Mount disk (if UUID found)
+  mount:
+    path: "{{ dataiku_mountdir }}"
+    src: "UUID={{ disk_uuid.stdout }}"
+    fstype: ext4
+    opts: "discard,defaults,nofail"
+    state: mounted
+  when: disk_uuid.stdout is defined and disk_uuid.stdout | length > 0
+- name: Ensure ownership (best-effort)
+  file:
+    path: "{{ dataiku_mountdir }}"
+    owner: "{{ dataiku_user | default('dataiku') }}"
+    group: "{{ dataiku_group | default('dataiku') }}"
+    recurse: true
+  when: disk_uuid.stdout is defined and disk_uuid.stdout | length > 0
+  failed_when: false
+ 

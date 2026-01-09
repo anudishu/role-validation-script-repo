@@ -1,0 +1,11 @@
+# Tasks for install-kubectl role
+- name: Check kubectl exists
+  stat:
+    path: "{{ kubectl_path }}"
+  register: kubectl_stat
+  failed_when: false
+- name: Print kubectl version (best-effort)
+  command: "{{ kubectl_path }} version --client --output=yaml"
+  when: kubectl_stat.stat.exists | default(false)
+  changed_when: false
+  failed_when: false

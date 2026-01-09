@@ -1,0 +1,3 @@
+# Default variables for install-selinux-firewalld role
+dss_tcp_ports:
+  - 10000

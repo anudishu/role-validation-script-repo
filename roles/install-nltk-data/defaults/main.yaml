@@ -1,0 +1,2 @@
+# Default variables for install-nltk-data role
+nltk_data_dir: /opt/dataiku/nltk_data

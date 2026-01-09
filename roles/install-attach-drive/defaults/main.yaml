@@ -1,0 +1,3 @@
+# Default variables for install-attach-drive role
+dataiku_disk_device: /dev/sdb
+ 

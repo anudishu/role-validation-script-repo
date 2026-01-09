@@ -1,0 +1,28 @@
+# Tasks for install-metadata role
+- name: Read STARTUP_BUCKET from GCE metadata (if present)
+  uri:
+    url: http://metadata.google.internal/computeMetadata/v1/instance/attributes/STARTUP_BUCKET
+    headers:
+      Metadata-Flavor: Google
+    return_content: true
+  register: startup_bucket_meta
+  failed_when: false
+  changed_when: false
+- name: Read project-id from GCE metadata
+  uri:
+    url: http://metadata.google.internal/computeMetadata/v1/project/project-id
+    headers:
+      Metadata-Flavor: Google
+    return_content: true
+  register: project_id_meta
+  failed_when: false
+  changed_when: false
+- name: Set facts from metadata unless overridden
+  set_fact:
+    startup_bucket_name: >-
+      {{ (startup_bucket_name | default('') | length > 0)
+         | ternary(startup_bucket_name, startup_bucket_meta.content | default('') | trim) }}
+    gcp_project_id: >-
+      {{ (gcp_project_id | default('') | length > 0)
+         | ternary(gcp_project_id, project_id_meta.content | default('') | trim) }}
+ 

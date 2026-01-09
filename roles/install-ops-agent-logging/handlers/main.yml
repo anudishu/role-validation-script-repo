@@ -1,0 +1,11 @@
+- name: restart ops agent
+  systemd:
+    name: google-cloud-ops-agent
+    state: restarted
+  failed_when: false
+- name: restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+  failed_when: false
+ 

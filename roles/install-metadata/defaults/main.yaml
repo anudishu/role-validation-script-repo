@@ -1,0 +1,3 @@
+# Default variables for install-metadata role
+startup_bucket_name: ""
+gcp_project_id: ""

@@ -1,0 +1,27 @@
+# Tasks for install-selinux-firewalld role
+- name: Ensure SELinux config is permissive (startup-script parity)
+  replace:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=.*'
+    replace: 'SELINUX=permissive'
+  failed_when: false
+- name: Install firewalld
+  yum:
+    name: firewalld
+    state: present
+  failed_when: false
+- name: Enable and start firewalld
+  systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  failed_when: false
+- name: Open DSS TCP ports in firewalld (best-effort)
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop: "{{ dss_tcp_ports | default([]) }}"
+  failed_when: false
+ 

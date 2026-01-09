@@ -1,0 +1,3 @@
+# Default variables for install-ops-agent-logging role
+ops_agent_config_path: /etc/google-cloud-ops-agent/config.yaml
+timezone: America/New_York

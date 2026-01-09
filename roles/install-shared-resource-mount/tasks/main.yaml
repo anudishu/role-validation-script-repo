@@ -1,0 +1,16 @@
+# Tasks for install-shared-resource-mount role
+- name: Ensure shared resources mount point exists
+  file:
+    path: "{{ shared_resources_mount }}"
+    state: directory
+    mode: "0755"
+- name: Mount shared resources device (optional; set shared_resources_device)
+  mount:
+    path: "{{ shared_resources_mount }}"
+    src: "{{ shared_resources_device }}"
+    fstype: "{{ shared_resources_fstype }}"
+    opts: "defaults,nofail"
+    state: mounted
+  when: shared_resources_device | default('') | length > 0
+  failed_when: false
+ 

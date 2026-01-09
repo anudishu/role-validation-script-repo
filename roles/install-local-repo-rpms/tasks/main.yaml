@@ -1,0 +1,52 @@
+# Tasks for install-local-repo-rpms role
+- name: Write local yum repo definition
+  template:
+    src: local.repo.j2
+    dest: /etc/yum.repos.d/local.repo
+    owner: root
+    group: root
+    mode: "0644"
+- name: Install required RPMs from local repo (best-effort parity)
+  yum:
+    name:
+      - git
+      - unzip
+      - createrepo
+      - ncurses-compat-libs
+      - java-1.8.0-openjdk
+      - java-17-openjdk-headless
+      - libgfortran
+      - libicu-devel
+      - libcurl-devel
+      - gtk3
+      - libXcursor
+      - openssl
+      - openssl-devel
+      - mesa-libgbm
+      - libX11-xcb
+      - gcc
+      - gcc-c++
+      - make
+      - wget
+      - zip
+      - nc
+      - sqlite
+      - sqlite-devel
+      - kubectl
+      - policycoreutils-python-utils
+      - python38
+      - python38-devel
+      - python39
+      - python39-devel
+      - libxml2-devel
+      - libxslt-devel
+      - nodejs
+      - nginx
+      - rsync
+      - google-cloud-cli-gke-gcloud-auth-plugin
+    disablerepo: "*"
+    enablerepo: "local"
+    skip_broken: true
+    state: present
+  failed_when: false
+ 
