@@ -53,6 +53,7 @@ TEMP_DIR="/tmp/validate_all_$$"
 # ==============================================================================
 
 REPO_ROOT=""
+USE_TMP_VALIDATION=false
 
 if [[ -d "/tmp/repo/roles" ]]; then
 
@@ -90,13 +91,22 @@ else
 
 fi
 
+# If REPO_ROOT not found but validation scripts exist in /tmp, use /tmp as fallback
+if [[ -z "$REPO_ROOT" ]] && [[ -f "/tmp/validate-install-Home.sh" ]]; then
+    # Use /tmp validation scripts as fallback
+    REPO_ROOT="/tmp"
+    USE_TMP_VALIDATION=true
+fi
+
 # ==============================================================================
 
  
 
 # Runtime validation scripts - mapped to local repo paths
 # ==============================================================================
-# CHANGE #2: Added all 9 validation scripts (Lines 105-122)
+# CHANGE #2: Added all 9 validation scripts (Lines 105-123)
+# CHANGE #3: Added 5 new role validation scripts (Lines 125-129)
+# Total: 14 validation scripts
 # ==============================================================================
 # Format: "relative_path:Display Name:Emoji:identifier"
 # Added on: January 9, 2026
@@ -121,6 +131,16 @@ VALIDATION_SCRIPTS=(
     "roles/install-cleanup/validation/validate.sh:System Cleanup:🧹:cleanup"
 
     "roles/install-pyhton-runtime/validation/validate.sh:Python Runtime:🐍:python"
+
+    "roles/install-Home/validation/validate.sh:Home Base Directory:🏠:home"
+
+    "roles/install-home-dir/validation/validate.sh:User Home Directories:👤:home-dir"
+
+    "roles/install-os-login/validation/validate.sh:OS Login:🔐:os-login"
+
+    "roles/install-disk/validation/validate.sh:Disk Mount:💾:disk"
+
+    "roles/install-nfs-mount/validation/validate.sh:NFS Mount:📁:nfs-mount"
 
 )
 
@@ -205,16 +225,15 @@ setup_environment() {
    
 
     if [[ -z "${REPO_ROOT}" ]]; then
-
-        log_error "CRITICAL: Could not determine REPO_ROOT. Ensure 'roles' folder exists."
-
-        return 1
-
+        if [[ "$USE_TMP_VALIDATION" == "true" ]]; then
+            log_info "Using /tmp validation scripts (REPO_ROOT not found, but validation scripts available in /tmp)"
+        else
+            log_error "CRITICAL: Could not determine REPO_ROOT. Ensure 'roles' folder exists."
+            return 1
+        fi
+    else
+        log_info "Detected Repository Root: ${REPO_ROOT}"
     fi
-
-   
-
-    log_info "Detected Repository Root: ${REPO_ROOT}"
 
  
 
@@ -223,13 +242,22 @@ setup_environment() {
     for script_info in "${VALIDATION_SCRIPTS[@]}"; do
 
         local rel_path=$(echo "$script_info" | cut -d: -f1)
-
-        if [[ ! -f "${REPO_ROOT}/${rel_path}" ]]; then
-
-            log_error "Validation script not found: ${REPO_ROOT}/${rel_path}"
-
-            ((missing_count++))
-
+        local role_name=$(echo "$rel_path" | sed -n 's|roles/\([^/]*\)/validation/validate.sh|\1|p')
+        
+        # Check if script exists in repo or in /tmp
+        if [[ "$USE_TMP_VALIDATION" == "true" ]]; then
+            if [[ -f "/tmp/validate-${role_name}.sh" ]]; then
+                # Script found in /tmp
+                continue
+            else
+                log_error "Validation script not found: /tmp/validate-${role_name}.sh"
+                ((missing_count++))
+            fi
+        else
+            if [[ ! -f "${REPO_ROOT}/${rel_path}" ]]; then
+                log_error "Validation script not found: ${REPO_ROOT}/${rel_path}"
+                ((missing_count++))
+            fi
         fi
 
     done
@@ -268,7 +296,21 @@ run_validation() {
 
     local emoji="$3"
 
-    local validation_script="${REPO_ROOT}/${relative_path}"
+    local validation_script=""
+    
+    # Check if using /tmp validation scripts
+    if [[ "$USE_TMP_VALIDATION" == "true" ]]; then
+        # Extract role name from path (e.g., "roles/install-Home/validation/validate.sh" -> "install-Home")
+        local role_name=$(echo "$relative_path" | sed -n 's|roles/\([^/]*\)/validation/validate.sh|\1|p')
+        if [[ -n "$role_name" ]] && [[ -f "/tmp/validate-${role_name}.sh" ]]; then
+            validation_script="/tmp/validate-${role_name}.sh"
+        else
+            log_error "Validation script not found in /tmp for ${role_name}"
+            return 1
+        fi
+    else
+        validation_script="${REPO_ROOT}/${relative_path}"
+    fi
 
     local runtime_lower=$(echo "$runtime_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
 
@@ -277,6 +319,11 @@ run_validation() {
    
 
     log_step "$emoji $runtime_name Validation"
+
+    if [[ ! -f "$validation_script" ]]; then
+        log_error "Validation script not found: ${validation_script}"
+        return 1
+    fi
 
     chmod +x "$validation_script"
 

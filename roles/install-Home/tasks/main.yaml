@@ -1,0 +1,26 @@
+# Tasks for install-Home role
+- name: Ensure home base directory exists
+  file:
+    path: "{{ home_base_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Set home directory permissions
+  file:
+    path: "{{ home_base_dir }}"
+    mode: "{{ home_dir_mode }}"
+    recurse: "{{ home_dir_recurse }}"
+  when: home_dir_mode | default('') | length > 0
+
+- name: Configure home directory skeleton
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/skel/{{ item | basename }}"
+    mode: "0644"
+  with_fileglob:
+    - "{{ skel_source_dir }}/*"
+  when: skel_source_dir | default('') | length > 0
+
+

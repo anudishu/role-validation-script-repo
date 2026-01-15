@@ -1,0 +1,5 @@
+# Default variables for install-certificate role
+cert_dir: /etc/pki/tls/certs
+cert_source_dir: ""
+
+

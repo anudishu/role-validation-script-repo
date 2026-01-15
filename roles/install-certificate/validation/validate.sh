@@ -14,7 +14,7 @@ try:
 except Exception as e:
     print("PyYAML not installed (pip install pyyaml).")
     sys.exit(1)
- 
+
 role_dir = os.environ["ROLE_DIR"]
 for base, _, files in os.walk(role_dir):
     for f in files:
@@ -30,7 +30,8 @@ print("YAML OK")
 PY
 echo "==> ansible-playbook syntax-check (if installed)"
 if command -v ansible-playbook >/dev/null 2>&1; then
-  ansible-playbook -i "${ROOT_DIR}/inventories/prod/hosts.ini"     "${ROOT_DIR}/playbooks/site.yml" --syntax-check || fail=1
+  ansible-playbook -i "${ROOT_DIR}/inventories/prod/hosts.ini" \
+    "${ROOT_DIR}/playbooks/site.yml" --syntax-check || fail=1
 else
   echo "WARN: ansible-playbook not found; skipping"
 fi
@@ -39,3 +40,4 @@ if [[ "${fail}" -ne 0 ]]; then
   exit 1
 fi
 echo "VALIDATION PASSED"
+

@@ -1,0 +1,32 @@
+# Tasks for install-home-dir role
+- name: Ensure user home directories exist
+  file:
+    path: "{{ home_base_path }}/{{ item.name }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.group | default(item.name) }}"
+    mode: "{{ item.mode | default('0750') }}"
+  loop: "{{ home_dir_users }}"
+  when: home_dir_users | default([]) | length > 0
+
+- name: Copy user profile files
+  copy:
+    src: /etc/skel/
+    dest: "{{ home_base_path }}/{{ item.name }}/"
+    owner: "{{ item.name }}"
+    group: "{{ item.group | default(item.name) }}"
+    mode: preserve
+    remote_src: true
+  loop: "{{ home_dir_users }}"
+  when: home_dir_users | default([]) | length > 0
+
+- name: Set proper ownership recursively
+  file:
+    path: "{{ home_base_path }}/{{ item.name }}"
+    owner: "{{ item.name }}"
+    group: "{{ item.group | default(item.name) }}"
+    recurse: true
+  loop: "{{ home_dir_users }}"
+  when: home_dir_users | default([]) | length > 0
+
+

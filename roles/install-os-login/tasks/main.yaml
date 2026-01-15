@@ -1,0 +1,38 @@
+# Tasks for install-os-login role
+- name: Install OS Login packages
+  yum:
+    name: "{{ os_login_packages }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Enable OS Login in PAM configuration
+  lineinfile:
+    path: /etc/pam.d/sshd
+    line: "account    required     pam_oslogin_login.so"
+    state: present
+  when: os_login_enable_pam | bool
+
+- name: Configure NSS for OS Login
+  lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: "^passwd:"
+    line: "passwd:     files oslogin"
+    state: present
+  when: os_login_enable_nss | bool
+
+- name: Configure sudoers for OS Login
+  lineinfile:
+    path: /etc/sudoers.d/google-oslogin
+    line: "%google-sudoers ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when: os_login_enable_sudo | bool
+
+- name: Restart SSH service
+  service:
+    name: sshd
+    state: restarted
+  when: os_login_restart_sshd | bool
+
+

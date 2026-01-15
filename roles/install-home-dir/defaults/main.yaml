@@ -1,0 +1,10 @@
+# Default variables for install-home-dir role
+home_base_path: /home
+home_dir_users: []
+# Example:
+# home_dir_users:
+#   - name: user1
+#     group: user1
+#     mode: "0750"
+
+

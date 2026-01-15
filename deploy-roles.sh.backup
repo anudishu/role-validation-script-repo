@@ -160,18 +160,24 @@ if [[ "$DEPLOY_NEW" == "true" ]] && [[ "$SKIP_DISK" == "false" ]]; then
     echo ""
 fi
 
-# Step 2: Prepare installation script (embedded, no file copy needed)
-echo -e "${YELLOW}Step 2: Preparing installation script...${NC}"
+# Step 2: Copy installation script to VM
+echo -e "${YELLOW}Step 2: Copying installation script to VM...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_SCRIPT_FILE="${SCRIPT_DIR}/install-new-roles.sh"
+INSTALL_SCRIPT="${SCRIPT_DIR}/install-new-roles.sh"
 
-if [[ ! -f "$INSTALL_SCRIPT_FILE" ]]; then
-    echo -e "${RED}❌ Installation script not found: $INSTALL_SCRIPT_FILE${NC}"
-    echo -e "${RED}Error: install-new-roles.sh is required for deployment${NC}"
+if [[ ! -f "$INSTALL_SCRIPT" ]]; then
+    echo -e "${RED}❌ Installation script not found: $INSTALL_SCRIPT${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Installation script ready (embedded)${NC}"
+if gcloud compute scp "$INSTALL_SCRIPT" "${VM_NAME}:~/install-new-roles.sh" \
+    --zone="$ZONE" \
+    --project="$PROJECT_ID" 2>/dev/null; then
+    echo -e "${GREEN}✅ Installation script copied to VM${NC}"
+else
+    echo -e "${RED}❌ Failed to copy installation script${NC}"
+    exit 1
+fi
 echo ""
 
 # Step 3: Copy validation scripts to VM
@@ -218,203 +224,28 @@ done
 echo -e "${GREEN}✅ Copied ${COPIED_COUNT} validation scripts to VM${NC}"
 echo ""
 
-# Step 4: Generate and execute installation script on VM
+# Step 4: Run installation script on VM
 echo -e "${YELLOW}Step 4: Running installation script on VM...${NC}"
 echo "This may take several minutes..."
 echo ""
 
-# Generate installation script with embedded content
-generate_installation_script() {
-    # Read install-new-roles.sh and embed it, but modify main() to accept flags
-    if [[ -f "$INSTALL_SCRIPT_FILE" ]]; then
-        # Read the file and modify the main() function to handle flags
-        sed '/^# Main execution$/,$d' "$INSTALL_SCRIPT_FILE"
-        
-        cat << 'INSTALL_SCRIPT_EOF'
+# Prepare installation command
+INSTALL_CMD="chmod +x ~/install-new-roles.sh && ~/install-new-roles.sh"
 
-# Main execution
-main() {
-    # Parse command line arguments
-    INSTALL_ORIGINAL=false
-    INSTALL_NEW=false
-    SKIP_DISK=false
-    
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --original-only)
-                INSTALL_ORIGINAL=true
-                INSTALL_NEW=false
-                shift
-                ;;
-            --new-only)
-                INSTALL_ORIGINAL=false
-                INSTALL_NEW=true
-                shift
-                ;;
-            --skip-disk)
-                SKIP_DISK=true
-                shift
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-    
-    # Default: install all if no flags
-    if [[ "$INSTALL_ORIGINAL" == "false" ]] && [[ "$INSTALL_NEW" == "false" ]]; then
-        INSTALL_ORIGINAL=true
-        INSTALL_NEW=true
-    fi
-    
-    echo "=========================================="
-    echo "Role Installation Script"
-    echo "Log file: ${LOG_FILE}"
-    echo "=========================================="
-    echo ""
-    
-    # Build roles list
-    ROLES=()
-    if [[ "$INSTALL_ORIGINAL" == "true" ]]; then
-        ROLES+=(
-            "install-metadata"
-            "install-pyhton-runtime"
-            "install-users-group"
-            "install-selinux-firewalld"
-            "install-docker-config"
-            "install-kubectl"
-            "install-nltk-data"
-            "install-ops-agent-logging"
-            "install-cleanup"
-        )
-    fi
-    if [[ "$INSTALL_NEW" == "true" ]]; then
-        ROLES+=(
-            "install-Home"
-            "install-home-dir"
-            "install-os-login"
-            "install-disk"
-            "install-nfs-mount"
-        )
-    fi
-    
-    FAILED_ROLES=()
-    VALIDATION_FAILED=()
-    
-    for role in "${ROLES[@]}"; do
-        INSTALL_SUCCESS=false
-        case "${role}" in
-            "install-metadata")
-                install_metadata && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-pyhton-runtime")
-                install_python_runtime && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-users-group")
-                install_users_group && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-selinux-firewalld")
-                install_selinux_firewalld && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-docker-config")
-                install_docker_config && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-kubectl")
-                install_kubectl && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-nltk-data")
-                install_nltk_data && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-ops-agent-logging")
-                install_ops_agent_logging && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-cleanup")
-                install_cleanup && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-Home")
-                install_home && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-home-dir")
-                install_home_dir && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-os-login")
-                install_os_login && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            "install-disk")
-                if [[ "$SKIP_DISK" == "true" ]]; then
-                    log_warning "Skipping install-disk (--skip-disk flag set)"
-                    INSTALL_SUCCESS=true
-                elif install_disk; then
-                    INSTALL_SUCCESS=true
-                else
-                    FAILED_ROLES+=("${role}")
-                fi
-                ;;
-            "install-nfs-mount")
-                install_nfs_mount && INSTALL_SUCCESS=true || FAILED_ROLES+=("${role}")
-                ;;
-            *)
-                log_error "Unknown role: ${role}"
-                FAILED_ROLES+=("${role}")
-                ;;
-        esac
-        
-        if [[ "$INSTALL_SUCCESS" == "true" ]]; then
-            echo ""
-            if validate_role "${role}"; then
-                log_success "Validation PASSED for ${role}"
-            else
-                log_error "Validation FAILED for ${role}"
-                VALIDATION_FAILED+=("${role}")
-            fi
-        fi
-        echo ""
-    done
-    
-    # Summary
-    echo "=========================================="
-    echo "Installation Summary"
-    echo "=========================================="
-    echo "Total roles: ${#ROLES[@]}"
-    echo "Successfully installed: $((${#ROLES[@]} - ${#FAILED_ROLES[@]}))"
-    echo "Installation failed: ${#FAILED_ROLES[@]}"
-    echo "Validation failed: ${#VALIDATION_FAILED[@]}"
-    echo ""
-    
-    if [ ${#FAILED_ROLES[@]} -gt 0 ] || [ ${#VALIDATION_FAILED[@]} -gt 0 ]; then
-        log_error "Some roles failed installation or validation. Check log: ${LOG_FILE}"
-        exit 1
-    else
-        log_success "All roles installed and validated successfully!"
-        exit 0
-    fi
-}
-
-# Run main function
-main "$@"
-INSTALL_SCRIPT_EOF
-    else
-        echo -e "${RED}Error: Cannot find install-new-roles.sh to embed${NC}" >&2
-        return 1
-    fi
-}
-
-# Prepare installation command with role flags
-INSTALL_FLAGS=""
+# Add role selection flags if needed
 if [[ "$DEPLOY_ORIGINAL" == "true" ]] && [[ "$DEPLOY_NEW" == "false" ]]; then
-    INSTALL_FLAGS="--original-only"
+    INSTALL_CMD="$INSTALL_CMD --original-only"
 elif [[ "$DEPLOY_ORIGINAL" == "false" ]] && [[ "$DEPLOY_NEW" == "true" ]]; then
-    INSTALL_FLAGS="--new-only"
+    INSTALL_CMD="$INSTALL_CMD --new-only"
     if [[ "$SKIP_DISK" == "true" ]]; then
-        INSTALL_FLAGS="$INSTALL_FLAGS --skip-disk"
+        INSTALL_CMD="$INSTALL_CMD --skip-disk"
     fi
 fi
 
-# Execute installation script via SSH
-if generate_installation_script | gcloud compute ssh "$VM_NAME" \
+if gcloud compute ssh "$VM_NAME" \
     --zone="$ZONE" \
     --project="$PROJECT_ID" \
-    --command="bash -s $INSTALL_FLAGS" 2>&1; then
+    --command="$INSTALL_CMD" 2>&1; then
     echo ""
     echo -e "${GREEN}=========================================="
     echo "✅ Installation Complete!"

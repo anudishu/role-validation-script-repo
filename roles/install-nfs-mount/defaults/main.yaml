@@ -1,0 +1,15 @@
+# Default variables for install-nfs-mount role
+nfs_packages:
+  - nfs-utils
+  - rpcbind
+nfs_default_opts: "rw,sync,hard,intr"
+nfs_enable_services: true
+nfs_mounts: []
+# Example:
+# nfs_mounts:
+#   - src: "nfs-server:/export/share"
+#     mount_point: "/mnt/nfs-share"
+#     opts: "rw,sync,hard,intr"
+#     mode: "0755"
+
+

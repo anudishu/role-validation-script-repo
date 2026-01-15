@@ -1,0 +1,47 @@
+# Tasks for install-security-policy role
+- name: Configure password policy
+  lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: "^{{ item.key }}"
+    line: "{{ item.key }} = {{ item.value }}"
+    state: present
+  loop: "{{ security_password_policy }}"
+  when: security_password_policy | default([]) | length > 0
+
+- name: Configure login defs
+  lineinfile:
+    path: /etc/login.defs
+    regexp: "^{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+  loop: "{{ security_login_defs }}"
+  when: security_login_defs | default([]) | length > 0
+
+- name: Configure SSH security settings
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+    validate: "sshd -t -f %s"
+  loop: "{{ security_ssh_settings }}"
+  when: security_ssh_settings | default([]) | length > 0
+  notify: restart sshd
+
+- name: Set file permissions on sensitive files
+  file:
+    path: "{{ item.path }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ security_file_permissions }}"
+  when: security_file_permissions | default([]) | length > 0
+
+- name: Disable unnecessary services
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ security_disabled_services }}"
+  when: security_disabled_services | default([]) | length > 0
+  ignore_errors: true
+
+

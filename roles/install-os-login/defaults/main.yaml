@@ -1,0 +1,9 @@
+# Default variables for install-os-login role
+os_login_packages:
+  - google-compute-engine-oslogin
+os_login_enable_pam: true
+os_login_enable_nss: true
+os_login_enable_sudo: true
+os_login_restart_sshd: false
+
+

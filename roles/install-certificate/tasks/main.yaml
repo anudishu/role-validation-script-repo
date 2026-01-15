@@ -1,0 +1,30 @@
+# Tasks for install-certificate role
+- name: Ensure certificate directory exists
+  file:
+    path: "{{ cert_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy SSL certificates
+  copy:
+    src: "{{ item }}"
+    dest: "{{ cert_dir }}/{{ item | basename }}"
+    mode: "0644"
+  with_fileglob:
+    - "{{ cert_source_dir }}/*.crt"
+  when: cert_source_dir | default('') | length > 0
+
+- name: Copy SSL private keys
+  copy:
+    src: "{{ item }}"
+    dest: "{{ cert_dir }}/{{ item | basename }}"
+    mode: "0600"
+  with_fileglob:
+    - "{{ cert_source_dir }}/*.key"
+  when: cert_source_dir | default('') | length > 0
+
+- name: Update CA certificates
+  command: update-ca-trust
+  when: ansible_os_family == "RedHat"
+
+

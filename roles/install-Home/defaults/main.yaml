@@ -1,0 +1,7 @@
+# Default variables for install-Home role
+home_base_dir: /home
+home_dir_mode: "0755"
+home_dir_recurse: false
+skel_source_dir: ""
+
+

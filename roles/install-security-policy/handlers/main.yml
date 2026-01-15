@@ -1,0 +1,7 @@
+# Handlers for install-security-policy role
+- name: restart sshd
+  service:
+    name: sshd
+    state: restarted
+
+

@@ -1,0 +1,37 @@
+# Tasks for install-disk role
+- name: Gather disk facts
+  setup:
+    gather_subset:
+      - hardware
+
+- name: Create partition on disk
+  parted:
+    device: "{{ disk_device }}"
+    number: 1
+    state: present
+    part_type: primary
+  when: disk_device | default('') | length > 0
+
+- name: Create filesystem on partition
+  filesystem:
+    fstype: "{{ disk_fstype }}"
+    dev: "{{ disk_device }}1"
+  when: disk_device | default('') | length > 0
+
+- name: Ensure mount point exists
+  file:
+    path: "{{ disk_mount_point }}"
+    state: directory
+    mode: "0755"
+  when: disk_mount_point | default('') | length > 0
+
+- name: Mount the disk
+  mount:
+    path: "{{ disk_mount_point }}"
+    src: "{{ disk_device }}1"
+    fstype: "{{ disk_fstype }}"
+    opts: "{{ disk_mount_opts }}"
+    state: mounted
+  when: disk_mount_point | default('') | length > 0
+
+
